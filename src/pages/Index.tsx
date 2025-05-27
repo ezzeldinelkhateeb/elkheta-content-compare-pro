@@ -1,12 +1,58 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import { FolderComparisonDashboard } from '@/components/FolderComparisonDashboard';
+import { ProgressTracker } from '@/components/ProgressTracker';
+import { ResultsManager } from '@/components/ResultsManager';
+import { NavigationHeader } from '@/components/NavigationHeader';
+
+type ApplicationView = 'dashboard' | 'processing' | 'results';
 
 const Index = () => {
+  const [currentView, setCurrentView] = useState<ApplicationView>('dashboard');
+  const [comparisonData, setComparisonData] = useState(null);
+
+  const handleStartComparison = (data: any) => {
+    setComparisonData(data);
+    setCurrentView('processing');
+  };
+
+  const handleComparisonComplete = (results: any) => {
+    setComparisonData(results);
+    setCurrentView('results');
+  };
+
+  const handleBackToDashboard = () => {
+    setCurrentView('dashboard');
+    setComparisonData(null);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100" dir="rtl">
+      <NavigationHeader 
+        currentView={currentView} 
+        onNavigate={setCurrentView}
+        onBackToDashboard={handleBackToDashboard}
+      />
+      
+      <main className="container mx-auto px-6 py-8">
+        {currentView === 'dashboard' && (
+          <FolderComparisonDashboard onStartComparison={handleStartComparison} />
+        )}
+        
+        {currentView === 'processing' && (
+          <ProgressTracker 
+            comparisonData={comparisonData}
+            onComplete={handleComparisonComplete}
+          />
+        )}
+        
+        {currentView === 'results' && (
+          <ResultsManager 
+            results={comparisonData}
+            onBackToDashboard={handleBackToDashboard}
+          />
+        )}
+      </main>
     </div>
   );
 };
