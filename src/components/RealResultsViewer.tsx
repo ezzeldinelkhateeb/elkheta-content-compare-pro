@@ -15,6 +15,19 @@ interface RealResultsViewerProps {
   onBackToDashboard: () => void;
 }
 
+interface Question {
+  question: string;
+  type?: string;
+  options?: string[];
+}
+
+// Helper function to safely handle questions_extracted Json field
+const getQuestionsArray = (questions: any): Question[] => {
+  if (!questions) return [];
+  if (Array.isArray(questions)) return questions;
+  return [];
+};
+
 export const RealResultsViewer: React.FC<RealResultsViewerProps> = ({
   projectId,
   onBackToDashboard
@@ -73,7 +86,10 @@ export const RealResultsViewer: React.FC<RealResultsViewerProps> = ({
     differentPages: results.filter(r => r.comparison_type === 'different').length,
     newPages: results.filter(r => r.comparison_type === 'new').length,
     removedPages: results.filter(r => r.comparison_type === 'removed').length,
-    extractedQuestions: results.reduce((acc, r) => acc + (r.questions_extracted?.length || 0), 0)
+    extractedQuestions: results.reduce((acc, r) => {
+      const questions = getQuestionsArray(r.questions_extracted);
+      return acc + questions.length;
+    }, 0)
   } : null;
 
   const handleExportResults = async () => {
@@ -138,7 +154,7 @@ export const RealResultsViewer: React.FC<RealResultsViewerProps> = ({
         <h2 className="text-3xl font-bold text-slate-800">نتائج المقارنة</h2>
         <p className="text-slate-600">{project.name}</p>
         <div className="flex items-center justify-center space-x-4 space-x-reverse text-sm text-slate-500">
-          <span>تم الإنجاز: {new Date(project.completed_at).toLocaleDateString('ar-SA')}</span>
+          <span>تم الإنجاز: {new Date(project.completed_at || '').toLocaleDateString('ar-SA')}</span>
           <span>مدة المعالجة: {project.completed_at && project.created_at ? 
             Math.round((new Date(project.completed_at).getTime() - new Date(project.created_at).getTime()) / 1000 / 60) + ' دقيقة' : 
             'غير متوفر'
@@ -227,57 +243,63 @@ export const RealResultsViewer: React.FC<RealResultsViewerProps> = ({
 
               {/* Results List */}
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredResults?.map((result) => (
-                  <div 
-                    key={result.id}
-                    className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center space-x-3 space-x-reverse">
-                      <div className="text-lg font-bold text-slate-600">
-                        #{result.page_number}
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-2 space-x-reverse">
-                          <Badge variant={
-                            result.comparison_type === 'identical' ? 'secondary' :
-                            result.comparison_type === 'different' ? 'destructive' :
-                            result.comparison_type === 'new' ? 'default' : 'outline'
-                          }>
-                            {result.comparison_type === 'identical' ? 'متطابقة' :
-                             result.comparison_type === 'different' ? 'مختلفة' :
-                             result.comparison_type === 'new' ? 'جديدة' : 'محذوفة'}
-                          </Badge>
-                          <span className="text-sm text-slate-600">
-                            التشابه: {Math.round((result.similarity_score || 0) * 100)}%
-                          </span>
+                {filteredResults?.map((result) => {
+                  const questions = getQuestionsArray(result.questions_extracted);
+                  return (
+                    <div 
+                      key={result.id}
+                      className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-center space-x-3 space-x-reverse">
+                        <div className="text-lg font-bold text-slate-600">
+                          #{result.page_number}
                         </div>
-                        {result.questions_extracted && result.questions_extracted.length > 0 && (
-                          <div className="text-sm text-green-600 mt-1">
-                            {result.questions_extracted.length} سؤال مستخرج
+                        <div>
+                          <div className="flex items-center space-x-2 space-x-reverse">
+                            <Badge variant={
+                              result.comparison_type === 'identical' ? 'secondary' :
+                              result.comparison_type === 'different' ? 'destructive' :
+                              result.comparison_type === 'new' ? 'default' : 'outline'
+                            }>
+                              {result.comparison_type === 'identical' ? 'متطابقة' :
+                               result.comparison_type === 'different' ? 'مختلفة' :
+                               result.comparison_type === 'new' ? 'جديدة' : 'محذوفة'}
+                            </Badge>
+                            <span className="text-sm text-slate-600">
+                              التشابه: {Math.round((result.similarity_score || 0) * 100)}%
+                            </span>
                           </div>
-                        )}
+                          {questions.length > 0 && (
+                            <div className="text-sm text-green-600 mt-1">
+                              {questions.length} سؤال مستخرج
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </TabsContent>
 
             <TabsContent value="questions" className="space-y-4">
               <div className="space-y-2">
-                {results?.filter(r => r.questions_extracted && r.questions_extracted.length > 0)
-                  .map((result) => (
-                  <div key={result.id} className="p-4 border border-slate-200 rounded-lg">
-                    <div className="font-medium text-slate-800 mb-2">
-                      الصفحة #{result.page_number}
-                    </div>
-                    {result.questions_extracted?.map((question: any, index: number) => (
-                      <div key={index} className="text-sm text-slate-600 mb-1">
-                        • {question.question}
+                {results?.filter(r => getQuestionsArray(r.questions_extracted).length > 0)
+                  .map((result) => {
+                  const questions = getQuestionsArray(result.questions_extracted);
+                  return (
+                    <div key={result.id} className="p-4 border border-slate-200 rounded-lg">
+                      <div className="font-medium text-slate-800 mb-2">
+                        الصفحة #{result.page_number}
                       </div>
-                    ))}
-                  </div>
-                ))}
+                      {questions.map((question: Question, index: number) => (
+                        <div key={index} className="text-sm text-slate-600 mb-1">
+                          • {question.question}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             </TabsContent>
 

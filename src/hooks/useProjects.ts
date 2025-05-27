@@ -2,6 +2,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { Database } from '@/integrations/supabase/types';
+
+type ProjectInsert = Database['public']['Tables']['projects']['Insert'];
+type ProjectRow = Database['public']['Tables']['projects']['Row'];
 
 export interface Project {
   id: string;
@@ -37,16 +41,24 @@ export const useCreateProject = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (projectData: Partial<Project>) => {
+    mutationFn: async (projectData: Omit<ProjectInsert, 'created_by'>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      const insertData: ProjectInsert = {
+        name: projectData.name!,
+        old_folder_path: projectData.old_folder_path!,
+        new_folder_path: projectData.new_folder_path!,
+        description: projectData.description,
+        settings: projectData.settings,
+        status: projectData.status,
+        progress: projectData.progress,
+        created_by: user.id
+      };
+
       const { data, error } = await supabase
         .from('projects')
-        .insert({
-          ...projectData,
-          created_by: user.id
-        })
+        .insert(insertData)
         .select()
         .single();
 
