@@ -9,7 +9,168 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      comparison_results: {
+        Row: {
+          comparison_type: string | null
+          created_at: string
+          id: string
+          new_page_path: string | null
+          ocr_text_new: string | null
+          ocr_text_old: string | null
+          old_page_path: string | null
+          page_number: number
+          project_id: string | null
+          questions_extracted: Json | null
+          similarity_score: number | null
+        }
+        Insert: {
+          comparison_type?: string | null
+          created_at?: string
+          id?: string
+          new_page_path?: string | null
+          ocr_text_new?: string | null
+          ocr_text_old?: string | null
+          old_page_path?: string | null
+          page_number: number
+          project_id?: string | null
+          questions_extracted?: Json | null
+          similarity_score?: number | null
+        }
+        Update: {
+          comparison_type?: string | null
+          created_at?: string
+          id?: string
+          new_page_path?: string | null
+          ocr_text_new?: string | null
+          ocr_text_old?: string | null
+          old_page_path?: string | null
+          page_number?: number
+          project_id?: string | null
+          questions_extracted?: Json | null
+          similarity_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comparison_results_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processing_logs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          id: string
+          message: string
+          phase: string
+          project_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          id?: string
+          message: string
+          phase: string
+          project_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          id?: string
+          message?: string
+          phase?: string
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          new_folder_path: string
+          old_folder_path: string
+          progress: number | null
+          settings: Json | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          new_folder_path: string
+          old_folder_path: string
+          progress?: number | null
+          settings?: Json | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          new_folder_path?: string
+          old_folder_path?: string
+          progress?: number | null
+          settings?: Json | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      team_members: {
+        Row: {
+          id: string
+          joined_at: string
+          project_id: string | null
+          role: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          project_id?: string | null
+          role?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          project_id?: string | null
+          role?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
