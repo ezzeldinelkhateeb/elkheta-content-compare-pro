@@ -25,19 +25,75 @@ export const RealComparisonEngine: React.FC<ComparisonEngineProps> = ({
 
   const phases = [
     'تحضير الملفات',
-    'تحليل الصور',
-    'مقارنة المحتوى',
+    'مقارنة الصور',
     'استخراج النصوص',
+    'استخراج الأسئلة',
     'إنشاء التقارير'
   ];
 
   useEffect(() => {
     if (project && !isProcessing) {
-      startComparison();
+      startRealComparison();
     }
   }, [project]);
 
-  const startComparison = async () => {
+  // Poll for progress updates
+  useEffect(() => {
+    if (!isProcessing) return;
+
+    const pollProgress = async () => {
+      try {
+        const { data: updatedProject } = await supabase
+          .from('projects')
+          .select('progress, status')
+          .eq('id', project.id)
+          .single();
+
+        if (updatedProject) {
+          setProgress(updatedProject.progress);
+          
+          if (updatedProject.status === 'completed') {
+            setIsProcessing(false);
+            onComplete({ projectId: project.id });
+            return;
+          }
+          
+          if (updatedProject.status === 'failed') {
+            setIsProcessing(false);
+            toast({
+              title: "خطأ في المقارنة",
+              description: "حدث خطأ أثناء معالجة المشروع",
+              variant: "destructive"
+            });
+            return;
+          }
+        }
+
+        // Get latest logs
+        const { data: latestLogs } = await supabase
+          .from('processing_logs')
+          .select('*')
+          .eq('project_id', project.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (latestLogs) {
+          setLogs(latestLogs);
+          if (latestLogs.length > 0) {
+            setCurrentPhase(latestLogs[0].phase || 'معالجة');
+          }
+        }
+
+      } catch (error) {
+        console.error('Error polling progress:', error);
+      }
+    };
+
+    const interval = setInterval(pollProgress, 2000);
+    return () => clearInterval(interval);
+  }, [isProcessing, project.id, onComplete]);
+
+  const startRealComparison = async () => {
     setIsProcessing(true);
     
     try {
@@ -47,54 +103,26 @@ export const RealComparisonEngine: React.FC<ComparisonEngineProps> = ({
         updates: { status: 'processing', progress: 0 }
       });
 
-      // Simulate real comparison process
-      for (let phase = 0; phase < phases.length; phase++) {
-        setCurrentPhase(phases[phase]);
-        
-        // Log current phase
-        await logProgress(project.id, phases[phase], 'بدء المرحلة');
+      // Parse file paths
+      const oldImagePaths = project.old_folder_path.split(',').filter(Boolean);
+      const newImagePaths = project.new_folder_path.split(',').filter(Boolean);
 
-        // Simulate processing time for each phase
-        for (let step = 0; step < 20; step++) {
-          const phaseProgress = (phase * 20) + step;
-          setProgress(phaseProgress);
-          
-          // Update project progress in database
-          await updateProject.mutateAsync({
-            id: project.id,
-            updates: { progress: phaseProgress }
-          });
-
-          // Add some realistic delay
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-
-        await logProgress(project.id, phases[phase], 'تم إكمال المرحلة');
-      }
-
-      // Complete the comparison
-      setProgress(100);
-      
-      // Generate mock results
-      const results = await generateResults(project.id);
-      
-      // Update project as completed
-      await updateProject.mutateAsync({
-        id: project.id,
-        updates: { 
-          status: 'completed', 
-          progress: 100,
-          completed_at: new Date().toISOString()
+      // Call the real comparison Edge Function
+      const { data, error } = await supabase.functions.invoke('real-image-comparison', {
+        body: {
+          projectId: project.id,
+          oldImagePaths,
+          newImagePaths
         }
       });
+
+      if (error) throw error;
 
       toast({
-        title: "اكتملت المقارنة",
-        description: "تم إنجاز مقارنة المحتوى بنجاح"
+        title: "تم بدء المقارنة الحقيقية",
+        description: "جاري معالجة الصور واستخراج الأسئلة..."
       });
 
-      onComplete(results);
-      
     } catch (error: any) {
       console.error('Comparison error:', error);
       
@@ -108,79 +136,17 @@ export const RealComparisonEngine: React.FC<ComparisonEngineProps> = ({
         description: error.message,
         variant: "destructive"
       });
-    }
-  };
-
-  const logProgress = async (projectId: string, phase: string, message: string) => {
-    try {
-      const { error } = await supabase
-        .from('processing_logs')
-        .insert({
-          project_id: projectId,
-          phase,
-          message,
-          details: { timestamp: new Date().toISOString() }
-        });
-
-      if (error) throw error;
-
-      // Update local logs
-      setLogs(prev => [...prev, { phase, message, timestamp: new Date() }]);
       
-    } catch (error) {
-      console.error('Error logging progress:', error);
+      setIsProcessing(false);
     }
-  };
-
-  const generateResults = async (projectId: string) => {
-    // Generate mock comparison results
-    const mockResults = [];
-    
-    for (let i = 1; i <= 50; i++) {
-      const comparisonType = Math.random() > 0.3 ? 'identical' : 'different';
-      const similarity = comparisonType === 'identical' ? 1.0 : Math.random() * 0.7;
-      
-      const result = {
-        project_id: projectId,
-        page_number: i,
-        comparison_type: comparisonType,
-        similarity_score: similarity,
-        ocr_text_old: `نص الصفحة ${i} من الكتاب القديم`,
-        ocr_text_new: `نص الصفحة ${i} من الكتاب الجديد`,
-        questions_extracted: comparisonType === 'different' ? [
-          { question: `سؤال رقم ${i}`, type: 'multiple_choice' }
-        ] : []
-      };
-
-      mockResults.push(result);
-    }
-
-    // Insert results into database
-    try {
-      const { error } = await supabase
-        .from('comparison_results')
-        .insert(mockResults);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error saving results:', error);
-    }
-
-    return {
-      projectId,
-      totalPages: 50,
-      identicalPages: mockResults.filter(r => r.comparison_type === 'identical').length,
-      differentPages: mockResults.filter(r => r.comparison_type === 'different').length,
-      extractedQuestions: mockResults.flatMap(r => r.questions_extracted).length,
-      results: mockResults
-    };
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold text-slate-800">جاري المقارنة...</h2>
+        <h2 className="text-3xl font-bold text-slate-800">جاري المقارنة الحقيقية...</h2>
         <p className="text-slate-600">{project?.name}</p>
+        <p className="text-sm text-green-600">🤖 يتم الآن استخدام الذكاء الاصطناعي لمقارنة الصور واستخراج الأسئلة</p>
       </div>
 
       <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-slate-50">
@@ -195,7 +161,7 @@ export const RealComparisonEngine: React.FC<ComparisonEngineProps> = ({
             <Progress value={progress} className="h-3" />
             <div className="flex justify-between text-sm text-slate-600">
               <span>{Math.round(progress)}% مكتمل</span>
-              <span>المرحلة {phases.indexOf(currentPhase) + 1} من {phases.length}</span>
+              <span>المرحلة {Math.min(Math.floor((progress / 100) * phases.length) + 1, phases.length)} من {phases.length}</span>
             </div>
           </div>
 
@@ -209,10 +175,9 @@ export const RealComparisonEngine: React.FC<ComparisonEngineProps> = ({
                 <div key={phase} className="flex flex-col items-center space-y-1">
                   <div className={`
                     w-3 h-3 rounded-full transition-colors
-                    ${isActive ? 'bg-blue-500' : 'bg-slate-300'}
-                    ${isCurrent ? 'animate-pulse' : ''}
+                    ${isActive ? 'bg-green-500' : isCurrent ? 'bg-blue-500 animate-pulse' : 'bg-slate-300'}
                   `} />
-                  <span className={`text-xs ${isActive ? 'text-blue-600' : 'text-slate-500'}`}>
+                  <span className={`text-xs ${isActive || isCurrent ? 'text-blue-600' : 'text-slate-500'}`}>
                     {phase}
                   </span>
                 </div>
@@ -229,15 +194,18 @@ export const RealComparisonEngine: React.FC<ComparisonEngineProps> = ({
         </CardHeader>
         <CardContent>
           <div className="space-y-2 max-h-40 overflow-y-auto">
-            {logs.slice(-5).map((log, index) => (
+            {logs.slice(0, 5).map((log, index) => (
               <div key={index} className="flex items-center space-x-2 space-x-reverse text-sm">
                 <Badge variant="secondary">معلومات</Badge>
                 <span className="text-slate-600">{log.message} - {log.phase}</span>
                 <span className="text-xs text-slate-400">
-                  {log.timestamp?.toLocaleTimeString('ar-SA')}
+                  {new Date(log.created_at).toLocaleTimeString('ar-SA')}
                 </span>
               </div>
             ))}
+            {logs.length === 0 && (
+              <p className="text-slate-500 text-center">جاري تحديث سجل المعالجة...</p>
+            )}
           </div>
         </CardContent>
       </Card>

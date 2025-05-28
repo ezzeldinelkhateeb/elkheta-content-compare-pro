@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FileUploader } from '@/components/FileUploader';
+import { FolderUploader } from '@/components/FolderUploader';
 import { ComparisonSettings } from '@/components/ComparisonSettings';
 import { useProjects, useCreateProject } from '@/hooks/useProjects';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -26,10 +26,10 @@ export const RealFolderComparisonDashboard: React.FC<RealFolderComparisonDashboa
   const [oldFolderFiles, setOldFolderFiles] = useState<string[]>([]);
   const [newFolderFiles, setNewFolderFiles] = useState<string[]>([]);
   const [settings, setSettings] = useState({
-    quickComparison: true,
+    quickComparison: false,
     extractQuestions: true,
     ocrAnalysis: true,
-    detailedReport: false
+    detailedReport: true
   });
 
   const handleStartComparison = async () => {
@@ -45,7 +45,7 @@ export const RealFolderComparisonDashboard: React.FC<RealFolderComparisonDashboa
     if (oldFolderFiles.length === 0 || newFolderFiles.length === 0) {
       toast({
         title: "خطأ",
-        description: "يرجى رفع ملفات الكتاب القديم والجديد",
+        description: "يرجى رفع مجلدي الكتاب القديم والجديد",
         variant: "destructive"
       });
       return;
@@ -58,12 +58,13 @@ export const RealFolderComparisonDashboard: React.FC<RealFolderComparisonDashboa
         old_folder_path: oldFolderFiles.join(','),
         new_folder_path: newFolderFiles.join(','),
         settings,
-        status: 'pending'
+        status: 'pending',
+        progress: 0
       });
 
       toast({
         title: "تم إنشاء المشروع",
-        description: "سيتم بدء المقارنة الآن..."
+        description: "سيتم بدء المقارنة الحقيقية للصور الآن..."
       });
 
       onStartComparison(project);
@@ -127,19 +128,19 @@ export const RealFolderComparisonDashboard: React.FC<RealFolderComparisonDashboa
             </div>
           </div>
 
-          {/* File Upload */}
+          {/* Folder Upload */}
           <div className="grid md:grid-cols-2 gap-8">
-            <FileUploader
+            <FolderUploader
               projectId={`temp-${Date.now()}`}
               folderType="old"
-              title="الكتاب القديم"
+              title="مجلد الكتاب القديم"
               icon="📚"
               onUploadComplete={setOldFolderFiles}
             />
-            <FileUploader
+            <FolderUploader
               projectId={`temp-${Date.now()}`}
               folderType="new"
-              title="الكتاب الجديد"
+              title="مجلد الكتاب الجديد"
               icon="📖"
               onUploadComplete={setNewFolderFiles}
             />
@@ -159,7 +160,7 @@ export const RealFolderComparisonDashboard: React.FC<RealFolderComparisonDashboa
               disabled={!projectName.trim() || oldFolderFiles.length === 0 || newFolderFiles.length === 0 || createProject.isPending}
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-3 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
             >
-              {createProject.isPending ? '🔄 جاري الإنشاء...' : '🚀 بدء المقارنة'}
+              {createProject.isPending ? '🔄 جاري الإنشاء...' : '🚀 بدء المقارنة الحقيقية'}
             </Button>
           </div>
         </CardContent>
